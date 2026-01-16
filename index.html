@@ -182,10 +182,10 @@
         </div>
     </div>
 
-    <!-- Modal de ajuda (geral + redução) -->
+    <!-- Modal de ajuda -->
     <div id="helpModal" class="modal">
         <div class="modal-content">
-            <span class="close" onclick="closeHelp()">&times;</span>
+            <span class="close" onclick="closeHelp()">×</span>
             <h2 id="helpTitle">Como funciona a redução de ruído?</h2>
             <div id="helpText"></div>
         </div>
@@ -219,7 +219,7 @@
                        - Para cada ponto de frequência da medição, procura o valor correspondente no arquivo de redução (com precisão muito alta).<br>
                        - Se encontrar, subtrai os valores em dB: <strong>resultado = medição - redução</strong>.<br>
                        - Se não encontrar ponto exato, mantém o valor original.<br><br>
-                    <strong>Resultado:</strong> curvas mais limpas, sem oscilações artificiais causadas pelo setup.<br>
+                    <strong>Resultado:</strong> curvas mais limpas, com menos oscilações artificiais.<br>
                     Se o checkbox estiver desmarcado → o gráfico mostra o dado bruto (sem redução).
                 `
             },
@@ -272,15 +272,15 @@
         // Configuração de dropzones
         function setupDropZone(zoneId, callback) {
             const zone = document.getElementById(zoneId);
-            zone.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const input = document.createElement('input');
-                input.type = 'file';
-                input.multiple = zoneId === 'dropZoneMedicao';
-                input.accept = zoneId === 'dropZoneMedicao' ? '.s1p,.s2p' : '.cal,.s1p,.s2p';
-                input.onchange = (ev) => callback(ev.target.files);
-                input.click();
-            });
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.multiple = zoneId === 'dropZoneMedicao';
+            input.accept = zoneId === 'dropZoneMedicao' ? '.s1p,.s2p' : '.cal,.s1p,.s2p';
+            input.style.display = 'none';
+            zone.appendChild(input); // Adiciona o input oculto dentro do dropzone
+
+            zone.addEventListener('click', () => input.click());
+            input.addEventListener('change', (e) => callback(e.target.files));
 
             zone.addEventListener('dragover', (e) => {
                 e.preventDefault();
@@ -477,10 +477,6 @@
         // Modal de ajuda
         function showHelp() {
             document.getElementById('helpModal').style.display = 'block';
-        }
-
-        function showHelpReducao() {
-            showHelp(); // Mesmo modal para ambas as seções
         }
 
         function closeHelp() {
