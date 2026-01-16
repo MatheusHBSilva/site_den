@@ -1,54 +1,312 @@
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>S-Parameter Plotter - Projeto Faculdade</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>S-Parameter Plotter</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
     <style>
-        body { 
-            font-family: Arial, sans-serif; 
-            margin: 0; 
-            padding: 0; 
-            background: linear-gradient(to right, #0f2027, #203a43, #2c5364); 
-            color: white; 
-            text-align: center; 
+        :root {
+            --primary: #00b4d8;
+            --dark: #0f2027;
+            --light: #e0f7fa;
         }
-        .container { 
-            max-width: 900px; 
-            margin: 100px auto; 
-            padding: 40px; 
-            background: rgba(0,0,0,0.4); 
-            border-radius: 15px; 
+        body {
+            margin: 0;
+            font-family: Arial, Helvetica, sans-serif;
+            background: linear-gradient(to bottom right, #0f2027, #203a43);
+            color: white;
+            min-height: 100vh;
         }
-        h1 { font-size: 3.5em; margin-bottom: 20px; }
-        p { font-size: 1.3em; line-height: 1.6; }
-        .btn { 
-            display: inline-block; 
-            margin: 20px 10px; 
-            padding: 15px 40px; 
-            font-size: 1.2em; 
-            background: #00b4d8; 
-            color: white; 
-            text-decoration: none; 
-            border-radius: 50px; 
-            transition: 0.3s; 
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
         }
-        .btn:hover { background: #0096c7; transform: translateY(-3px); }
-        footer { margin-top: 80px; font-size: 0.9em; opacity: 0.8; }
+        header {
+            text-align: center;
+            padding: 40px 0 20px;
+        }
+        h1 { margin: 0; font-size: 3em; }
+        .section { background: rgba(255,255,255,0.08); border-radius: 12px; padding: 20px; margin: 20px 0; }
+        .upload-area {
+            border: 2px dashed var(--primary);
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        .upload-area:hover { background: rgba(0,180,216,0.1); }
+        .file-list { margin-top: 20px; }
+        .file-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(255,255,255,0.05);
+            padding: 12px;
+            margin: 8px 0;
+            border-radius: 8px;
+        }
+        button {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px 18px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        button:hover { background: #0096c7; }
+        .chart-container { position: relative; height: 500px; margin-top: 30px; }
+        #chartCanvas { width: 100% !important; height: 100% !important; }
+        footer { text-align: center; padding: 40px; opacity: 0.7; font-size: 0.9em; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>S-Parameter Plotter</h1>
-        <p>Visualize, compare e processe arquivos de parâmetros S (.s1p, .s2p, .cal).<br>
-        Aplique redução de ruído, crie médias entre arquivos e gere gráficos profissionais.</p>
-        
-        <p><strong>Feito para o projeto de faculdade – Matheus Henrique</strong></p>
-        
-        <a href="https://plotter.seu-dominio.com" class="btn" target="_blank">Acessar o App Agora →</a>
-        <a href="https://github.com/seu-usuario/seu-repo" class="btn" target="_blank">Ver Código no GitHub</a>
+        <header>
+            <h1>S-Parameter Plotter</h1>
+            <p>Visualize, compare e processe arquivos .s1p / .s2p / .cal no navegador</p>
+        </header>
+
+        <!-- Upload de arquivos de medição -->
+        <div class="section">
+            <h2>1. Adicionar Arquivos de Medição</h2>
+            <div class="upload-area" id="dropZoneMedicao">
+                <p>Clique ou arraste arquivos .s1p / .s2p aqui</p>
+                <input type="file" id="inputMedicao" multiple accept=".s1p,.s2p" style="display:none;" />
+            </div>
+            <div class="file-list" id="listaMedicao"></div>
+        </div>
+
+        <!-- Upload de arquivo de redução -->
+        <div class="section">
+            <h2>2. Arquivo de Redução de Ruído (opcional)</h2>
+            <div class="upload-area" id="dropZoneReducao">
+                <p>Clique ou arraste arquivo .cal / .s1p / .s2p</p>
+                <input type="file" id="inputReducao" accept=".cal,.s1p,.s2p" style="display:none;" />
+            </div>
+            <div id="reducaoNome"></div>
+        </div>
+
+        <!-- Botões de ação -->
+        <div style="text-align:center; margin:30px 0;">
+            <button onclick="gerarGrafico()">Gerar Gráfico</button>
+            <button onclick="criarMedia()" style="margin-left:20px;">Criar Média de 2 arquivos selecionados</button>
+        </div>
+
+        <!-- Área do gráfico -->
+        <div class="section chart-container">
+            <canvas id="chartCanvas"></canvas>
+        </div>
     </div>
-    
-    <footer>© 2026 | Projeto Acadêmico | Powered by Streamlit & Render</footer>
+
+    <footer>Projeto de Faculdade - Matheus Henrique | 2026</footer>
+
+    <!-- JavaScript principal -->
+    <script>
+        let arquivosMedicao = [];   // {name, content: ArrayBuffer}
+        let arquivoReducao = null;   // {name, content: ArrayBuffer}
+        let chart = null;
+
+        // Drag & Drop + Clique para upload
+        function setupDropZone(zoneId, inputId, callback) {
+            const zone = document.getElementById(zoneId);
+            const input = document.getElementById(inputId);
+
+            zone.addEventListener('click', () => input.click());
+            input.addEventListener('change', (e) => callback(e.target.files));
+
+            zone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                zone.style.background = 'rgba(0,180,216,0.2)';
+            });
+            zone.addEventListener('dragleave', () => zone.style.background = '');
+            zone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                zone.style.background = '';
+                callback(e.dataTransfer.files);
+            });
+        }
+
+        setupDropZone('dropZoneMedicao', 'inputMedicao', async (files) => {
+            for (const file of files) {
+                if (!file.name.match(/\.(s1p|s2p)$/i)) continue;
+                const arrayBuffer = await file.arrayBuffer();
+                arquivosMedicao.push({ name: file.name, content: arrayBuffer });
+                atualizarListaMedicao();
+            }
+        });
+
+        setupDropZone('dropZoneReducao', 'inputReducao', async (files) => {
+            if (files.length === 0) return;
+            const file = files[0];
+            if (!file.name.match(/\.(cal|s1p|s2p)$/i)) {
+                alert("Formato inválido. Use .cal, .s1p ou .s2p");
+                return;
+            }
+            const arrayBuffer = await file.arrayBuffer();
+            arquivoReducao = { name: file.name, content: arrayBuffer };
+            document.getElementById('reducaoNome').innerHTML = `<strong>Redução aplicada:</strong> ${file.name}`;
+        });
+
+        function atualizarListaMedicao() {
+            const lista = document.getElementById('listaMedicao');
+            lista.innerHTML = '';
+            arquivosMedicao.forEach((arq, index) => {
+                const item = document.createElement('div');
+                item.className = 'file-item';
+                item.innerHTML = `
+                    <span>${arq.name}</span>
+                    <label><input type="checkbox" data-index="${index}" class="chk-reducao"/> Aplicar redução</label>
+                    <button onclick="removerArquivo(${index})">Remover</button>
+                `;
+                lista.appendChild(item);
+            });
+        }
+
+        function removerArquivo(index) {
+            arquivosMedicao.splice(index, 1);
+            atualizarListaMedicao();
+        }
+
+        async function parseSParam(buffer, filename) {
+            const text = new TextDecoder('utf-8', {fatal:false}).decode(buffer);
+            const lines = text.split(/\r?\n/);
+            const freq = [], real = [], imag = [];
+            const isS1P = filename.toLowerCase().endsWith('.s1p') || filename.toLowerCase().endsWith('.cal');
+
+            for (const line of lines) {
+                const trimmed = line.trim();
+                if (!trimmed || trimmed.startsWith('#') || trimmed.startsWith('!')) continue;
+                const parts = trimmed.split(/\s+/);
+                if (parts.length < 3) continue;
+                try {
+                    const f = parseFloat(parts[0]) / 1e9;
+                    let re, im;
+                    if (isS1P) {
+                        re = parseFloat(parts[1]);
+                        im = parseFloat(parts[2]);
+                    } else {
+                        if (parts.length < 5) continue;
+                        re = parseFloat(parts[3]);
+                        im = parseFloat(parts[4]);
+                    }
+                    freq.push(f);
+                    real.push(re);
+                    imag.push(im);
+                } catch {}
+            }
+            return { freq, real, imag };
+        }
+
+        function calcularMagDb(real, imag) {
+            return real.map((r, i) => 20 * Math.log10(Math.sqrt(r*r + imag[i]*imag[i] + 1e-12)));
+        }
+
+        function gerarGrafico() {
+            if (arquivosMedicao.length === 0) {
+                alert("Adicione pelo menos um arquivo de medição!");
+                return;
+            }
+
+            const ctx = document.getElementById('chartCanvas').getContext('2d');
+            if (chart) chart.destroy();
+
+            const datasets = [];
+            const chks = document.querySelectorAll('.chk-reducao');
+
+            arquivosMedicao.forEach(async (arq, i) => {
+                const { freq, real, imag } = await parseSParam(arq.content, arq.name);
+                if (freq.length === 0) return;
+
+                let mag = calcularMagDb(real, imag);
+
+                // Aplicar redução se checkbox marcado e existir arquivo de redução
+                if (chks[i].checked && arquivoReducao) {
+                    const { freq: rf, real: rr, imag: ri } = await parseSParam(arquivoReducao.content, arquivoReducao.name);
+                    const redMag = calcularMagDb(rr, ri);
+                    mag = mag.map((v, j) => {
+                        const idx = rf.findIndex(f => Math.abs(f - freq[j]) < 1e-6);
+                        return idx >= 0 ? v - redMag[idx] : v;
+                    });
+                }
+
+                datasets.push({
+                    label: arq.name,
+                    data: freq.map((f, j) => ({x: f, y: mag[j]})),
+                    borderColor: `hsl(${i * 40}, 80%, 60%)`,
+                    fill: false,
+                    tension: 0.1
+                });
+
+                // Atualiza gráfico após todos carregarem (simplificado)
+                if (datasets.length === arquivosMedicao.length) {
+                    chart = new Chart(ctx, {
+                        type: 'line',
+                        data: { datasets },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            scales: {
+                                x: { type: 'linear', title: { display: true, text: 'Frequência (GHz)' } },
+                                y: { title: { display: true, text: '|S| (dB)' } }
+                            },
+                            plugins: { legend: { position: 'top' } }
+                        }
+                    });
+                }
+            });
+        }
+
+        async function criarMedia() {
+            const chks = document.querySelectorAll('.chk-reducao:checked');
+            if (chks.length !== 2) {
+                alert("Selecione exatamente dois arquivos para criar a média!");
+                return;
+            }
+
+            const idx1 = chks[0].dataset.index;
+            const idx2 = chks[1].dataset.index;
+
+            const file1 = arquivosMedicao[idx1];
+            const file2 = arquivosMedicao[idx2];
+
+            const { freq: f1, real: r1, imag: i1 } = await parseSParam(file1.content, file1.name);
+            const { freq: f2, real: r2, imag: i2 } = await parseSParam(file2.content, file2.name);
+
+            if (f1.length !== f2.length) {
+                alert("Os arquivos têm número diferente de pontos. Média não suportada.");
+                return;
+            }
+
+            const reMean = r1.map((v, i) => (v + r2[i]) / 2);
+            const imMean = i1.map((v, i) => (v + i2[i]) / 2);
+
+            let content = "!File created by S-Parameter Plotter\n# Hz S RI R 50\n";
+            for (let i = 0; i < f1.length; i++) {
+                const fHz = f1[i] * 1e9;
+                content += `${fHz} 0 0 ${reMean[i].toFixed(6)} ${imMean[i].toFixed(6)} 0 0 0 0\n`;
+            }
+
+            const blob = new Blob([content], { type: "text/plain" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `media_${file1.name}_${file2.name}`;
+            a.click();
+            URL.revokeObjectURL(url);
+
+            alert("Arquivo de média gerado e baixado!");
+        }
+
+        // Inicializa drag & drop
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('dropZoneMedicao').addEventListener('click', () => document.getElementById('inputMedicao').click());
+            document.getElementById('dropZoneReducao').addEventListener('click', () => document.getElementById('inputReducao').click());
+        });
+    </script>
 </body>
 </html>
