@@ -33,12 +33,13 @@
         }
         h1 { margin: 0; font-size: 3em; flex: 1; }
         .lang-select {
-            padding: 8px 16px;
+            padding: 10px 20px;
             background: rgba(255,255,255,0.1);
-            border: 1px solid var(--primary);
-            border-radius: 6px;
+            border: 2px solid var(--primary);
+            border-radius: 8px;
             color: white;
-            font-size: 1em;
+            font-size: 1.1em;
+            cursor: pointer;
         }
         .section { 
             background: rgba(255,255,255,0.08); 
@@ -49,21 +50,24 @@
         .upload-title {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 12px;
         }
         .help-btn {
             background: none;
-            border: 1px solid var(--primary);
+            border: 2px solid var(--primary);
             color: var(--primary);
-            width: 24px;
-            height: 24px;
+            width: 30px;
+            height: 30px;
             border-radius: 50%;
             font-weight: bold;
+            font-size: 1.2em;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
+            transition: 0.2s;
         }
+        .help-btn:hover { background: rgba(0,180,216,0.2); }
         .upload-area {
             border: 2px dashed var(--primary);
             border-radius: 10px;
@@ -107,23 +111,24 @@
             top: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(0,0,0,0.6);
+            background-color: rgba(0,0,0,0.7);
         }
         .modal-content {
             background: #203a43;
-            margin: 15% auto;
-            padding: 30px;
+            margin: 10% auto;
+            padding: 35px;
             border-radius: 12px;
-            width: 80%;
-            max-width: 600px;
+            width: 85%;
+            max-width: 700px;
             position: relative;
+            line-height: 1.6;
         }
         .close {
             position: absolute;
             right: 25px;
             top: 15px;
             color: white;
-            font-size: 28px;
+            font-size: 36px;
             font-weight: bold;
             cursor: pointer;
         }
@@ -154,7 +159,10 @@
 
         <!-- Upload de arquivo de redução -->
         <div class="section">
-            <h2 id="section2Title">Arquivo de Redução de Ruído (opcional)</h2>
+            <div class="upload-title">
+                <h2 id="section2Title">Arquivo de Redução de Ruído (opcional)</h2>
+                <button class="help-btn" onclick="showHelpReducao()">?</button>
+            </div>
             <div class="upload-area" id="dropZoneReducao">
                 <p id="dropReducaoText">Clique ou arraste arquivo .cal / .s1p / .s2p</p>
             </div>
@@ -174,20 +182,12 @@
         </div>
     </div>
 
-    <!-- Modal de ajuda -->
+    <!-- Modal de ajuda (geral + redução) -->
     <div id="helpModal" class="modal">
         <div class="modal-content">
             <span class="close" onclick="closeHelp()">&times;</span>
             <h2 id="helpTitle">Como funciona a redução de ruído?</h2>
-            <p id="helpText">
-                A redução de ruído é uma técnica de calibração que remove efeitos sistemáticos (como reflexões, perdas de cabo ou ruído do container vazio).<br><br>
-                Como funciona no site:<br>
-                1. Carregue um arquivo de referência (redução) na seção 2.<br>
-                2. Para cada arquivo de medição, marque o checkbox "Aplicar redução".<br>
-                3. Ao gerar o gráfico, o site subtrai (em dB) a magnitude do arquivo de referência da medição (ponto a ponto).<br><br>
-                Resultado: curvas mais limpas, com menos oscilações artificiais.<br>
-                Se não marcar o checkbox → o gráfico mostra o dado bruto (sem redução).
-            </p>
+            <div id="helpText"></div>
         </div>
     </div>
 
@@ -208,13 +208,20 @@
                 btnMedia: "Criar Média de 2 arquivos selecionados",
                 btnSalvar: "Salvar Gráfico como PNG",
                 helpTitle: "Como funciona a redução de ruído?",
-                helpText: `A redução de ruído é uma técnica de calibração que remove efeitos sistemáticos (como reflexões, perdas de cabo ou ruído do container vazio).<br><br>
-                Como funciona no site:<br>
-                1. Carregue um arquivo de referência (redução) na seção 2.<br>
-                2. Para cada arquivo de medição, marque o checkbox "Aplicar redução".<br>
-                3. Ao gerar o gráfico, o site subtrai (em dB) a magnitude do arquivo de referência da medição (ponto a ponto).<br><br>
-                Resultado: curvas mais limpas, com menos oscilações artificiais.<br>
-                Se não marcar o checkbox → o gráfico mostra o dado bruto (sem redução).`
+                helpText: `
+                    A redução de ruído é uma técnica de calibração que remove efeitos sistemáticos (como reflexões, perdas de cabo ou ruído do container vazio).<br><br>
+                    <strong>Passo a passo no site:</strong><br>
+                    1. Carregue um arquivo de referência (redução) na seção "Arquivo de Redução de Ruído".<br>
+                    2. Para cada arquivo de medição, marque o checkbox "Aplicar redução" ao lado dele.<br>
+                    3. Ao clicar em "Gerar Gráfico", o site faz o seguinte:<br>
+                       - Calcula a magnitude em dB do arquivo de medição (√(real² + imag²) → 20×log10).<br>
+                       - Calcula a magnitude em dB do arquivo de redução da mesma forma.<br>
+                       - Para cada ponto de frequência da medição, procura o valor correspondente no arquivo de redução (com precisão muito alta).<br>
+                       - Se encontrar, subtrai os valores em dB: <strong>resultado = medição - redução</strong>.<br>
+                       - Se não encontrar ponto exato, mantém o valor original.<br><br>
+                    <strong>Resultado:</strong> curvas mais limpas, sem oscilações artificiais causadas pelo setup.<br>
+                    Se o checkbox estiver desmarcado → o gráfico mostra o dado bruto (sem redução).
+                `
             },
             en: {
                 title: "S-Parameter Plotter",
@@ -226,13 +233,20 @@
                 btnMedia: "Create Average of 2 Selected Files",
                 btnSalvar: "Save Graph as PNG",
                 helpTitle: "How does noise reduction work?",
-                helpText: `Noise reduction is a calibration technique that removes systematic effects (such as reflections, cable losses, or empty container noise).<br><br>
-                How it works on the site:<br>
-                1. Load a reference file (reduction) in section 2.<br>
-                2. For each measurement file, check the "Apply reduction" box.<br>
-                3. When generating the graph, the site subtracts (in dB) the magnitude of the reference file from the measurement (point by point).<br><br>
-                Result: cleaner curves with fewer artificial oscillations.<br>
-                If the checkbox is not checked → the graph shows the raw data (no reduction).`
+                helpText: `
+                    Noise reduction is a calibration technique that removes systematic effects (such as reflections, cable losses, or empty container noise).<br><br>
+                    <strong>Step by step on the site:</strong><br>
+                    1. Load a reference file (reduction) in the "Noise Reduction File" section.<br>
+                    2. For each measurement file, check the "Apply reduction" box next to it.<br>
+                    3. When clicking "Generate Graph", the site does the following:<br>
+                       - Calculates the magnitude in dB of the measurement file (√(real² + imag²) → 20×log10).<br>
+                       - Calculates the magnitude in dB of the reduction file the same way.<br>
+                       - For each frequency point in the measurement, it looks for the matching point in the reduction file (very high precision).<br>
+                       - If found, subtracts the values in dB: <strong>result = measurement - reduction</strong>.<br>
+                       - If no exact match, keeps the original value.<br><br>
+                    <strong>Result:</strong> cleaner curves with fewer artificial oscillations.<br>
+                    If the checkbox is unchecked → the graph shows raw data (no reduction).
+                `
             }
         };
 
@@ -463,6 +477,10 @@
         // Modal de ajuda
         function showHelp() {
             document.getElementById('helpModal').style.display = 'block';
+        }
+
+        function showHelpReducao() {
+            showHelp(); // Mesmo modal para ambas as seções
         }
 
         function closeHelp() {
