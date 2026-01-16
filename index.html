@@ -29,7 +29,12 @@
             padding: 40px 0 20px;
         }
         h1 { margin: 0; font-size: 3em; }
-        .section { background: rgba(255,255,255,0.08); border-radius: 12px; padding: 20px; margin: 20px 0; }
+        .section { 
+            background: rgba(255,255,255,0.08); 
+            border-radius: 12px; 
+            padding: 20px; 
+            margin: 20px 0; 
+        }
         .upload-area {
             border: 2px dashed var(--primary);
             border-radius: 10px;
@@ -57,11 +62,15 @@
             border-radius: 6px;
             cursor: pointer;
             transition: 0.2s;
+            margin: 5px;
         }
         button:hover { background: #0096c7; }
-        .chart-container { position: relative; height: 500px; margin-top: 30px; }
-        #chartCanvas { width: 100% !important; height: 100% !important; }
-        footer { text-align: center; padding: 40px; opacity: 0.7; font-size: 0.9em; }
+        .chart-container { 
+            position: relative; 
+            height: 500px; 
+            margin-top: 30px; 
+        }
+        .action-buttons { text-align: center; margin: 20px 0; }
     </style>
 </head>
 <body>
@@ -76,7 +85,6 @@
             <h2>1. Adicionar Arquivos de Medição</h2>
             <div class="upload-area" id="dropZoneMedicao">
                 <p>Clique ou arraste arquivos .s1p / .s2p aqui</p>
-                <input type="file" id="inputMedicao" multiple accept=".s1p,.s2p" style="display:none;" />
             </div>
             <div class="file-list" id="listaMedicao"></div>
         </div>
@@ -86,15 +94,15 @@
             <h2>2. Arquivo de Redução de Ruído (opcional)</h2>
             <div class="upload-area" id="dropZoneReducao">
                 <p>Clique ou arraste arquivo .cal / .s1p / .s2p</p>
-                <input type="file" id="inputReducao" accept=".cal,.s1p,.s2p" style="display:none;" />
             </div>
-            <div id="reducaoNome"></div>
+            <div id="reducaoNome" style="margin-top:10px;"></div>
         </div>
 
         <!-- Botões de ação -->
-        <div style="text-align:center; margin:30px 0;">
+        <div class="action-buttons">
             <button onclick="gerarGrafico()">Gerar Gráfico</button>
-            <button onclick="criarMedia()" style="margin-left:20px;">Criar Média de 2 arquivos selecionados</button>
+            <button onclick="criarMedia()">Criar Média de 2 arquivos selecionados</button>
+            <button id="btnSalvarGrafico" style="display:none;" onclick="salvarGrafico()">Salvar Gráfico como PNG</button>
         </div>
 
         <!-- Área do gráfico -->
@@ -103,21 +111,24 @@
         </div>
     </div>
 
-    <footer>Projeto de Faculdade - Matheus Henrique | 2026</footer>
-
     <!-- JavaScript principal -->
     <script>
         let arquivosMedicao = [];   // {name, content: ArrayBuffer}
         let arquivoReducao = null;   // {name, content: ArrayBuffer}
         let chart = null;
 
-        // Drag & Drop + Clique para upload
-        function setupDropZone(zoneId, inputId, callback) {
+        // Configuração de drag & drop e clique sem duplicar eventos
+        function setupDropZone(zoneId, callback) {
             const zone = document.getElementById(zoneId);
-            const input = document.getElementById(inputId);
-
-            zone.addEventListener('click', () => input.click());
-            input.addEventListener('change', (e) => callback(e.target.files));
+            zone.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.multiple = zoneId === 'dropZoneMedicao';
+                input.accept = zoneId === 'dropZoneMedicao' ? '.s1p,.s2p' : '.cal,.s1p,.s2p';
+                input.onchange = (ev) => callback(ev.target.files);
+                input.click();
+            });
 
             zone.addEventListener('dragover', (e) => {
                 e.preventDefault();
@@ -131,16 +142,18 @@
             });
         }
 
-        setupDropZone('dropZoneMedicao', 'inputMedicao', async (files) => {
+        setupDropZone('dropZoneMedicao', async (files) => {
             for (const file of files) {
                 if (!file.name.match(/\.(s1p|s2p)$/i)) continue;
                 const arrayBuffer = await file.arrayBuffer();
-                arquivosMedicao.push({ name: file.name, content: arrayBuffer });
-                atualizarListaMedicao();
+                if (!arquivosMedicao.some(a => a.name === file.name)) {
+                    arquivosMedicao.push({ name: file.name, content: arrayBuffer });
+                    atualizarListaMedicao();
+                }
             }
         });
 
-        setupDropZone('dropZoneReducao', 'inputReducao', async (files) => {
+        setupDropZone('dropZoneReducao', async (files) => {
             if (files.length === 0) return;
             const file = files[0];
             if (!file.name.match(/\.(cal|s1p|s2p)$/i)) {
@@ -206,7 +219,7 @@
             return real.map((r, i) => 20 * Math.log10(Math.sqrt(r*r + imag[i]*imag[i] + 1e-12)));
         }
 
-        function gerarGrafico() {
+        async function gerarGrafico() {
             if (arquivosMedicao.length === 0) {
                 alert("Adicione pelo menos um arquivo de medição!");
                 return;
@@ -218,13 +231,13 @@
             const datasets = [];
             const chks = document.querySelectorAll('.chk-reducao');
 
-            arquivosMedicao.forEach(async (arq, i) => {
+            for (let i = 0; i < arquivosMedicao.length; i++) {
+                const arq = arquivosMedicao[i];
                 const { freq, real, imag } = await parseSParam(arq.content, arq.name);
-                if (freq.length === 0) return;
+                if (freq.length === 0) continue;
 
                 let mag = calcularMagDb(real, imag);
 
-                // Aplicar redução se checkbox marcado e existir arquivo de redução
                 if (chks[i].checked && arquivoReducao) {
                     const { freq: rf, real: rr, imag: ri } = await parseSParam(arquivoReducao.content, arquivoReducao.name);
                     const redMag = calcularMagDb(rr, ri);
@@ -241,24 +254,35 @@
                     fill: false,
                     tension: 0.1
                 });
+            }
 
-                // Atualiza gráfico após todos carregarem (simplificado)
-                if (datasets.length === arquivosMedicao.length) {
-                    chart = new Chart(ctx, {
-                        type: 'line',
-                        data: { datasets },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            scales: {
-                                x: { type: 'linear', title: { display: true, text: 'Frequência (GHz)' } },
-                                y: { title: { display: true, text: '|S| (dB)' } }
-                            },
-                            plugins: { legend: { position: 'top' } }
-                        }
-                    });
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: { datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { type: 'linear', title: { display: true, text: 'Frequência (GHz)' } },
+                        y: { title: { display: true, text: '|S| (dB)' } }
+                    },
+                    plugins: { legend: { position: 'top' } }
                 }
             });
+
+            // Mostra botão de salvar gráfico após gerar
+            document.getElementById('btnSalvarGrafico').style.display = 'inline-block';
+        }
+
+        function salvarGrafico() {
+            if (!chart) {
+                alert("Gere o gráfico primeiro!");
+                return;
+            }
+            const link = document.createElement('a');
+            link.download = 'grafico_s_parameters.png';
+            link.href = chart.toBase64Image();
+            link.click();
         }
 
         async function criarMedia() {
@@ -301,12 +325,6 @@
 
             alert("Arquivo de média gerado e baixado!");
         }
-
-        // Inicializa drag & drop
-        document.addEventListener('DOMContentLoaded', () => {
-            document.getElementById('dropZoneMedicao').addEventListener('click', () => document.getElementById('inputMedicao').click());
-            document.getElementById('dropZoneReducao').addEventListener('click', () => document.getElementById('inputReducao').click());
-        });
     </script>
 </body>
 </html>
