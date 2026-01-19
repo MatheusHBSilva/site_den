@@ -27,47 +27,14 @@
         header {
             text-align: center;
             padding: 40px 0 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
         }
-        h1 { margin: 0; font-size: 3em; flex: 1; }
-        .lang-select {
-            padding: 10px 20px;
-            background: rgba(255,255,255,0.1);
-            border: 2px solid var(--primary);
-            border-radius: 8px;
-            color: white;
-            font-size: 1.1em;
-            cursor: pointer;
-        }
+        h1 { margin: 0; font-size: 3em; }
         .section { 
             background: rgba(255,255,255,0.08); 
             border-radius: 12px; 
             padding: 20px; 
             margin: 20px 0; 
         }
-        .upload-title {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-        .help-btn {
-            background: none;
-            border: 2px solid var(--primary);
-            color: var(--primary);
-            width: 30px;
-            height: 30px;
-            border-radius: 50%;
-            font-weight: bold;
-            font-size: 1.2em;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: 0.2s;
-        }
-        .help-btn:hover { background: rgba(0,180,216,0.2); }
         .upload-area {
             border: 2px dashed var(--primary);
             border-radius: 10px;
@@ -103,6 +70,11 @@
             height: 500px; 
             margin-top: 30px; 
         }
+        .action-buttons { text-align: center; margin: 20px 0; }
+        .filter-option {
+            margin: 15px 0;
+            font-size: 1.1em;
+        }
         .modal {
             display: none;
             position: fixed;
@@ -132,48 +104,51 @@
             font-weight: bold;
             cursor: pointer;
         }
-        .action-buttons { text-align: center; margin: 20px 0; }
     </style>
 </head>
 <body>
     <div class="container">
         <header>
-            <h1 id="title">S-Parameter Plotter</h1>
-            <select id="langSelect" class="lang-select" onchange="changeLanguage()">
-                <option value="pt">Português</option>
-                <option value="en">English</option>
-            </select>
+            <h1>S-Parameter Plotter</h1>
+            <p>Visualize, compare e processe arquivos .s1p / .s2p / .cal no navegador</p>
         </header>
 
         <!-- Upload de arquivos de medição -->
         <div class="section">
-            <div class="upload-title">
-                <h2 id="section1Title">Adicionar Arquivos de Medição</h2>
-                <button class="help-btn" onclick="showHelp()">?</button>
-            </div>
+            <h2>Adicionar Arquivos de Medição</h2>
             <div class="upload-area" id="dropZoneMedicao">
-                <p id="dropMedicaoText">Clique ou arraste arquivos .s1p / .s2p aqui</p>
+                <p>Clique ou arraste arquivos .s1p / .s2p / .cal aqui</p>
             </div>
+            <input type="file" id="inputMedicao" multiple accept=".s1p,.s2p,.cal" style="display:none;" />
             <div class="file-list" id="listaMedicao"></div>
         </div>
 
         <!-- Upload de arquivo de redução -->
         <div class="section">
-            <div class="upload-title">
-                <h2 id="section2Title">Arquivo de Redução de Ruído (opcional)</h2>
-                <button class="help-btn" onclick="showHelpReducao()">?</button>
-            </div>
+            <h2>Arquivo de Redução de Ruído (opcional)</h2>
             <div class="upload-area" id="dropZoneReducao">
-                <p id="dropReducaoText">Clique ou arraste arquivo .cal / .s1p / .s2p</p>
+                <p>Clique ou arraste arquivo .s1p / .s2p / .cal aqui</p>
             </div>
+            <input type="file" id="inputReducao" accept=".s1p,.s2p,.cal" style="display:none;" />
             <div id="reducaoNome" style="margin-top:10px;"></div>
+        </div>
+
+        <!-- Filtro -->
+        <div class="filter-option">
+            <label>
+                <input type="checkbox" id="chkFiltro" />
+                Aplicar filtro (-10 dB)
+            </label>
+            <span style="margin-left:10px; font-size:0.95em; opacity:0.8;">
+                Mostra apenas valores ≤ -10 dB (elimina picos acima disso)
+            </span>
         </div>
 
         <!-- Botões de ação -->
         <div class="action-buttons">
-            <button onclick="gerarGrafico()" id="btnGerar">Gerar Gráfico</button>
-            <button onclick="criarMedia()" id="btnMedia">Criar Média de 2 arquivos selecionados</button>
-            <button id="btnSalvarGrafico" style="display:none;" onclick="salvarGrafico()" id="btnSalvar">Salvar Gráfico como PNG</button>
+            <button onclick="gerarGrafico()">Gerar Gráfico</button>
+            <button onclick="criarMedia()">Criar Média de 2 arquivos selecionados</button>
+            <button id="btnSalvarGrafico" style="display:none;" onclick="salvarGrafico()">Salvar Gráfico como PNG</button>
         </div>
 
         <!-- Área do gráfico -->
@@ -186,8 +161,18 @@
     <div id="helpModal" class="modal">
         <div class="modal-content">
             <span class="close" onclick="closeHelp()">×</span>
-            <h2 id="helpTitle">Como funciona a redução de ruído?</h2>
-            <div id="helpText"></div>
+            <h2>Como funciona a redução de ruído?</h2>
+            <div id="helpText">
+                A redução de ruído é uma técnica de calibração que remove efeitos sistemáticos do setup de medição.<br><br>
+                <strong>Passo a passo:</strong><br>
+                1. Carregue um arquivo de referência (redução) na seção "Arquivo de Redução de Ruído".<br>
+                2. Para cada arquivo de medição, marque o checkbox "Aplicar redução".<br>
+                3. Ao gerar o gráfico, o site:<br>
+                   - Calcula magnitude em dB do arquivo de medição.<br>
+                   - Calcula magnitude em dB do arquivo de redução.<br>
+                   - Subtrai (em dB) ponto a ponto quando encontra frequências correspondentes.<br><br>
+                Resultado: curvas mais limpas. Sem marcação → mostra dado bruto.
+            </div>
         </div>
     </div>
 
@@ -197,90 +182,12 @@
         let arquivoReducao = null;
         let chart = null;
 
-        const translations = {
-            pt: {
-                title: "S-Parameter Plotter",
-                dropMedicaoText: "Clique ou arraste arquivos .s1p / .s2p aqui",
-                section1Title: "Adicionar Arquivos de Medição",
-                section2Title: "Arquivo de Redução de Ruído (opcional)",
-                dropReducaoText: "Clique ou arraste arquivo .cal / .s1p / .s2p",
-                btnGerar: "Gerar Gráfico",
-                btnMedia: "Criar Média de 2 arquivos selecionados",
-                btnSalvar: "Salvar Gráfico como PNG",
-                helpTitle: "Como funciona a redução de ruído?",
-                helpText: `
-                    A redução de ruído é uma técnica de calibração que remove efeitos sistemáticos (como reflexões, perdas de cabo ou ruído do container vazio).<br><br>
-                    <strong>Passo a passo no site:</strong><br>
-                    1. Carregue um arquivo de referência (redução) na seção "Arquivo de Redução de Ruído".<br>
-                    2. Para cada arquivo de medição, marque o checkbox "Aplicar redução" ao lado dele.<br>
-                    3. Ao clicar em "Gerar Gráfico", o site faz o seguinte:<br>
-                       - Calcula a magnitude em dB do arquivo de medição (√(real² + imag²) → 20×log10).<br>
-                       - Calcula a magnitude em dB do arquivo de redução da mesma forma.<br>
-                       - Para cada ponto de frequência da medição, procura o valor correspondente no arquivo de redução (com precisão muito alta).<br>
-                       - Se encontrar, subtrai os valores em dB: <strong>resultado = medição - redução</strong>.<br>
-                       - Se não encontrar ponto exato, mantém o valor original.<br><br>
-                    <strong>Resultado:</strong> curvas mais limpas, com menos oscilações artificiais.<br>
-                    Se o checkbox estiver desmarcado → o gráfico mostra o dado bruto (sem redução).
-                `
-            },
-            en: {
-                title: "S-Parameter Plotter",
-                dropMedicaoText: "Click or drag .s1p / .s2p files here",
-                section1Title: "Add Measurement Files",
-                section2Title: "Noise Reduction File (optional)",
-                dropReducaoText: "Click or drag .cal / .s1p / .s2p file",
-                btnGerar: "Generate Graph",
-                btnMedia: "Create Average of 2 Selected Files",
-                btnSalvar: "Save Graph as PNG",
-                helpTitle: "How does noise reduction work?",
-                helpText: `
-                    Noise reduction is a calibration technique that removes systematic effects (such as reflections, cable losses, or empty container noise).<br><br>
-                    <strong>Step by step on the site:</strong><br>
-                    1. Load a reference file (reduction) in the "Noise Reduction File" section.<br>
-                    2. For each measurement file, check the "Apply reduction" box next to it.<br>
-                    3. When clicking "Generate Graph", the site does the following:<br>
-                       - Calculates the magnitude in dB of the measurement file (√(real² + imag²) → 20×log10).<br>
-                       - Calculates the magnitude in dB of the reduction file the same way.<br>
-                       - For each frequency point in the measurement, it looks for the matching point in the reduction file (very high precision).<br>
-                       - If found, subtracts the values in dB: <strong>result = measurement - reduction</strong>.<br>
-                       - If no exact match, keeps the original value.<br><br>
-                    <strong>Result:</strong> cleaner curves with fewer artificial oscillations.<br>
-                    If the checkbox is unchecked → the graph shows raw data (no reduction).
-                `
-            }
-        };
-
-        let currentLang = 'pt';
-
-        function changeLanguage() {
-            currentLang = document.getElementById('langSelect').value;
-            document.getElementById('title').textContent = translations[currentLang].title;
-            document.getElementById('dropMedicaoText').textContent = translations[currentLang].dropMedicaoText;
-            document.getElementById('section1Title').textContent = translations[currentLang].section1Title;
-            document.getElementById('section2Title').textContent = translations[currentLang].section2Title;
-            document.getElementById('dropReducaoText').textContent = translations[currentLang].dropReducaoText;
-            document.getElementById('btnGerar').textContent = translations[currentLang].btnGerar;
-            document.getElementById('btnMedia').textContent = translations[currentLang].btnMedia;
-            document.getElementById('btnSalvar').textContent = translations[currentLang].btnSalvar;
-            document.getElementById('helpTitle').textContent = translations[currentLang].helpTitle;
-            document.getElementById('helpText').innerHTML = translations[currentLang].helpText;
-        }
-
-        // Inicializa idioma
-        changeLanguage();
-
         // Configuração de dropzones
-        function setupDropZone(zoneId, callback) {
+        function setupDropZone(zoneId, inputId, callback) {
             const zone = document.getElementById(zoneId);
-            const input = document.createElement('input');
-            input.type = 'file';
-            input.multiple = zoneId === 'dropZoneMedicao';
-            input.accept = zoneId === 'dropZoneMedicao' ? '.s1p,.s2p' : '.cal,.s1p,.s2p';
-            input.style.display = 'none';
-            zone.appendChild(input); // Adiciona o input oculto dentro do dropzone
+            const input = document.getElementById(inputId);
 
             zone.addEventListener('click', () => input.click());
-            input.addEventListener('change', (e) => callback(e.target.files));
 
             zone.addEventListener('dragover', (e) => {
                 e.preventDefault();
@@ -292,11 +199,16 @@
                 zone.style.background = '';
                 callback(e.dataTransfer.files);
             });
+
+            input.addEventListener('change', (e) => {
+                callback(e.target.files);
+                input.value = '';
+            });
         }
 
-        setupDropZone('dropZoneMedicao', async (files) => {
+        setupDropZone('dropZoneMedicao', 'inputMedicao', async (files) => {
             for (const file of files) {
-                if (!file.name.match(/\.(s1p|s2p)$/i)) continue;
+                if (!file.name.match(/\.(s1p|s2p|cal)$/i)) continue;
                 const arrayBuffer = await file.arrayBuffer();
                 if (!arquivosMedicao.some(a => a.name === file.name)) {
                     arquivosMedicao.push({ name: file.name, content: arrayBuffer });
@@ -305,16 +217,13 @@
             }
         });
 
-        setupDropZone('dropZoneReducao', async (files) => {
+        setupDropZone('dropZoneReducao', 'inputReducao', async (files) => {
             if (files.length === 0) return;
             const file = files[0];
-            if (!file.name.match(/\.(cal|s1p|s2p)$/i)) {
-                alert(currentLang === 'pt' ? "Formato inválido. Use .cal, .s1p ou .s2p" : "Invalid format. Use .cal, .s1p or .s2p");
-                return;
-            }
+            if (!file.name.match(/\.(s1p|s2p|cal)$/i)) return alert("Formato inválido. Use .s1p, .s2p ou .cal");
             const arrayBuffer = await file.arrayBuffer();
             arquivoReducao = { name: file.name, content: arrayBuffer };
-            document.getElementById('reducaoNome').innerHTML = `<strong>${currentLang === 'pt' ? 'Redução aplicada:' : 'Reduction applied:'}</strong> ${file.name}`;
+            document.getElementById('reducaoNome').innerHTML = `<strong>Redução aplicada:</strong> ${file.name}`;
         });
 
         function atualizarListaMedicao() {
@@ -325,8 +234,8 @@
                 item.className = 'file-item';
                 item.innerHTML = `
                     <span>${arq.name}</span>
-                    <label><input type="checkbox" data-index="${index}" class="chk-reducao"/> ${currentLang === 'pt' ? 'Aplicar redução' : 'Apply reduction'}</label>
-                    <button onclick="removerArquivo(${index})">${currentLang === 'pt' ? 'Remover' : 'Remove'}</button>
+                    <label><input type="checkbox" data-index="${index}" class="chk-reducao"/> Aplicar redução</label>
+                    <button onclick="removerArquivo(${index})">Remover</button>
                 `;
                 lista.appendChild(item);
             });
@@ -373,7 +282,7 @@
 
         async function gerarGrafico() {
             if (arquivosMedicao.length === 0) {
-                alert(currentLang === 'pt' ? "Adicione pelo menos um arquivo de medição!" : "Add at least one measurement file!");
+                alert("Adicione pelo menos um arquivo de medição!");
                 return;
             }
 
@@ -382,6 +291,7 @@
 
             const datasets = [];
             const chks = document.querySelectorAll('.chk-reducao');
+            const filtroAtivado = document.getElementById('chkFiltro').checked;
 
             for (let i = 0; i < arquivosMedicao.length; i++) {
                 const arq = arquivosMedicao[i];
@@ -399,9 +309,12 @@
                     });
                 }
 
+                let dataPoints = freq.map((f, j) => ({x: f, y: mag[j]}));
+                if (filtroAtivado) dataPoints = dataPoints.filter(p => p.y <= -10);
+
                 datasets.push({
-                    label: arq.name,
-                    data: freq.map((f, j) => ({x: f, y: mag[j]})),
+                    label: arq.name + (filtroAtivado ? " (filtrado)" : ""),
+                    data: dataPoints,
                     borderColor: `hsl(${i * 40}, 80%, 60%)`,
                     fill: false,
                     tension: 0.1
@@ -415,8 +328,8 @@
                     responsive: true,
                     maintainAspectRatio: false,
                     scales: {
-                        x: { type: 'linear', title: { display: true, text: currentLang === 'pt' ? 'Frequência (GHz)' : 'Frequency (GHz)' } },
-                        y: { title: { display: true, text: currentLang === 'pt' ? '|S| (dB)' : '|S| (dB)' } }
+                        x: { type: 'linear', title: { display: true, text: 'Frequência (GHz)' } },
+                        y: { title: { display: true, text: '|S| (dB)' } }
                     },
                     plugins: { legend: { position: 'top' } }
                 }
@@ -426,9 +339,14 @@
         }
 
         function salvarGrafico() {
-            if (!chart) return;
+            if (!chart) {
+                alert("Gere o gráfico primeiro!");
+                return;
+            }
+            let nome = prompt("Digite o nome do arquivo (sem extensão):", "grafico_s_parameters");
+            if (!nome) nome = "grafico_s_parameters";
             const link = document.createElement('a');
-            link.download = 'grafico_s_parameters.png';
+            link.download = nome + '.png';
             link.href = chart.toBase64Image();
             link.click();
         }
@@ -436,7 +354,7 @@
         async function criarMedia() {
             const chks = document.querySelectorAll('.chk-reducao:checked');
             if (chks.length !== 2) {
-                alert(currentLang === 'pt' ? "Selecione exatamente dois arquivos para criar a média!" : "Select exactly two files to create average!");
+                alert("Selecione exatamente dois arquivos para criar a média!");
                 return;
             }
 
@@ -446,16 +364,30 @@
             const file1 = arquivosMedicao[idx1];
             const file2 = arquivosMedicao[idx2];
 
-            const { freq: f1, real: r1, imag: i1 } = await parseSParam(file1.content, file1.name);
-            const { freq: f2, real: r2, imag: i2 } = await parseSParam(file2.content, file2.name);
+            const data1 = await parseSParam(file1.content, file1.name);
+            const data2 = await parseSParam(file2.content, file2.name);
+
+            const { freq: f1, real: r1, imag: i1 } = data1;
+            const { freq: f2, real: r2, imag: i2 } = data2;
+
+            // Checagem de segurança para evitar o erro "undefined.map"
+            if (!f1 || f1.length === 0 || !r1 || r1.length === 0 || !i1 || i1.length === 0 ||
+                !f2 || f2.length === 0 || !r2 || r2.length === 0 || !i2 || i2.length === 0) {
+                alert("Um ou ambos os arquivos estão vazios, inválidos ou sem dados de S-parameters. Verifique os arquivos selecionados.");
+                return;
+            }
 
             if (f1.length !== f2.length) {
-                alert(currentLang === 'pt' ? "Os arquivos têm número diferente de pontos. Média não suportada." : "Files have different number of points. Average not supported.");
+                alert("Os arquivos têm número diferente de pontos. Média não suportada.");
                 return;
             }
 
             const reMean = r1.map((v, i) => (v + r2[i]) / 2);
             const imMean = i1.map((v, i) => (v + i2[i]) / 2);
+
+            const nomePadrao = `media_${file1.name}_${file2.name}`;
+            let nomeSalvar = prompt("Digite o nome do arquivo (sem extensão):", nomePadrao);
+            if (!nomeSalvar) nomeSalvar = nomePadrao;
 
             let content = "!File created by S-Parameter Plotter\n# Hz S RI R 50\n";
             for (let i = 0; i < f1.length; i++) {
@@ -467,11 +399,11 @@
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `media_${file1.name}_${file2.name}`;
+            a.download = nomeSalvar + '.s2p';
             a.click();
             URL.revokeObjectURL(url);
 
-            alert(currentLang === 'pt' ? "Arquivo de média gerado e baixado!" : "Average file generated and downloaded!");
+            alert("Arquivo de média gerado e baixado!");
         }
 
         // Modal de ajuda
@@ -485,9 +417,7 @@
 
         window.onclick = function(event) {
             const modal = document.getElementById('helpModal');
-            if (event.target == modal) {
-                modal.style.display = "none";
-            }
+            if (event.target == modal) modal.style.display = "none";
         }
     </script>
 </body>
