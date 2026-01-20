@@ -53,6 +53,11 @@
             padding: 12px;
             margin: 8px 0;
             border-radius: 8px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .file-item label {
+            white-space: nowrap;
         }
         button {
             background: var(--primary);
@@ -74,6 +79,18 @@
         .filter-option {
             margin: 15px 0;
             font-size: 1.1em;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .filter-option input[type="number"] {
+            width: 90px;
+            padding: 6px;
+            border-radius: 4px;
+            border: 1px solid #555;
+            background: #1a2a33;
+            color: white;
         }
         .modal {
             display: none;
@@ -133,21 +150,23 @@
             <div id="reducaoNome" style="margin-top:10px;"></div>
         </div>
 
-        <!-- Filtro -->
+        <!-- Filtro personalizado -->
         <div class="filter-option">
             <label>
                 <input type="checkbox" id="chkFiltro" />
-                Aplicar filtro (-10 dB)
+                Aplicar filtro (mostrar apenas ≤ 
             </label>
+            <input type="number" id="valorFiltroDb" value="-10" step="1" min="-100" max="0" />
+            <label>dB)</label>
             <span style="margin-left:10px; font-size:0.95em; opacity:0.8;">
-                Mostra apenas valores ≤ -10 dB (elimina picos acima disso)
+                Elimina pontos acima do valor escolhido
             </span>
         </div>
 
         <!-- Botões de ação -->
         <div class="action-buttons">
             <button onclick="gerarGrafico()">Gerar Gráfico</button>
-            <button onclick="criarMedia()">Criar Média de 2 arquivos selecionados</button>
+            <button onclick="criarMedia()">Criar Média dos arquivos selecionados</button>
             <button id="btnSalvarGrafico" style="display:none;" onclick="salvarGrafico()">Salvar Gráfico como PNG</button>
         </div>
 
@@ -166,11 +185,8 @@
                 A redução de ruído é uma técnica de calibração que remove efeitos sistemáticos do setup de medição.<br><br>
                 <strong>Passo a passo:</strong><br>
                 1. Carregue um arquivo de referência (redução) na seção "Arquivo de Redução de Ruído".<br>
-                2. Para cada arquivo de medição, marque o checkbox "Aplicar redução".<br>
-                3. Ao gerar o gráfico, o site:<br>
-                   - Calcula magnitude em dB do arquivo de medição.<br>
-                   - Calcula magnitude em dB do arquivo de redução.<br>
-                   - Subtrai (em dB) ponto a ponto quando encontra frequências correspondentes.<br><br>
+                2. Para cada arquivo de medição que deseja calibrar, marque o checkbox <strong>Aplicar redução</strong>.<br>
+                3. Ao gerar o gráfico, o site subtrai (em dB) o arquivo de redução do arquivo de medição.<br><br>
                 Resultado: curvas mais limpas. Sem marcação → mostra dado bruto.
             </div>
         </div>
@@ -182,7 +198,6 @@
         let arquivoReducao = null;
         let chart = null;
 
-        // Configuração de dropzones
         function setupDropZone(zoneId, inputId, callback) {
             const zone = document.getElementById(zoneId);
             const input = document.getElementById(inputId);
@@ -234,7 +249,8 @@
                 item.className = 'file-item';
                 item.innerHTML = `
                     <span>${arq.name}</span>
-                    <label><input type="checkbox" data-index="${index}" class="chk-reducao"/> Aplicar redução</label>
+                    <label title="Subtrair arquivo de redução (calibração)"><input type="checkbox" data-index="${index}" class="chk-reducao"/> Aplicar redução</label>
+                    <label title="Incluir este arquivo na média"><input type="checkbox" data-index="${index}" class="chk-media"/> Incluir na média</label>
                     <button onclick="removerArquivo(${index})">Remover</button>
                 `;
                 lista.appendChild(item);
@@ -290,8 +306,9 @@
             if (chart) chart.destroy();
 
             const datasets = [];
-            const chks = document.querySelectorAll('.chk-reducao');
+            const chksReducao = document.querySelectorAll('.chk-reducao');
             const filtroAtivado = document.getElementById('chkFiltro').checked;
+            const limiarDb = filtroAtivado ? Number(document.getElementById('valorFiltroDb').value) : -Infinity;
 
             for (let i = 0; i < arquivosMedicao.length; i++) {
                 const arq = arquivosMedicao[i];
@@ -300,7 +317,7 @@
 
                 let mag = calcularMagDb(real, imag);
 
-                if (chks[i].checked && arquivoReducao) {
+                if (chksReducao[i].checked && arquivoReducao) {
                     const { freq: rf, real: rr, imag: ri } = await parseSParam(arquivoReducao.content, arquivoReducao.name);
                     const redMag = calcularMagDb(rr, ri);
                     mag = mag.map((v, j) => {
@@ -310,10 +327,12 @@
                 }
 
                 let dataPoints = freq.map((f, j) => ({x: f, y: mag[j]}));
-                if (filtroAtivado) dataPoints = dataPoints.filter(p => p.y <= -10);
+                if (filtroAtivado) {
+                    dataPoints = dataPoints.filter(p => p.y <= limiarDb);
+                }
 
                 datasets.push({
-                    label: arq.name + (filtroAtivado ? " (filtrado)" : ""),
+                    label: arq.name + (filtroAtivado ? ` (≤ ${limiarDb} dB)` : ""),
                     data: dataPoints,
                     borderColor: `hsl(${i * 40}, 80%, 60%)`,
                     fill: false,
@@ -352,9 +371,9 @@
         }
 
         async function criarMedia() {
-            const chks = document.querySelectorAll('.chk-reducao:checked');
+            const chks = document.querySelectorAll('.chk-media:checked');
             if (chks.length !== 2) {
-                alert("Selecione exatamente dois arquivos para criar a média!");
+                alert("Selecione exatamente dois arquivos para criar a média (use os checkboxes 'Incluir na média')!");
                 return;
             }
 
@@ -370,10 +389,9 @@
             const { freq: f1, real: r1, imag: i1 } = data1;
             const { freq: f2, real: r2, imag: i2 } = data2;
 
-            // Checagem de segurança para evitar o erro "undefined.map"
-            if (!f1 || f1.length === 0 || !r1 || r1.length === 0 || !i1 || i1.length === 0 ||
-                !f2 || f2.length === 0 || !r2 || r2.length === 0 || !i2 || i2.length === 0) {
-                alert("Um ou ambos os arquivos estão vazios, inválidos ou sem dados de S-parameters. Verifique os arquivos selecionados.");
+            if (!f1?.length || !r1?.length || !i1?.length ||
+                !f2?.length || !r2?.length || !i2?.length) {
+                alert("Um ou ambos os arquivos estão vazios ou inválidos.");
                 return;
             }
 
@@ -385,9 +403,14 @@
             const reMean = r1.map((v, i) => (v + r2[i]) / 2);
             const imMean = i1.map((v, i) => (v + i2[i]) / 2);
 
-            const nomePadrao = `media_${file1.name}_${file2.name}`;
-            let nomeSalvar = prompt("Digite o nome do arquivo (sem extensão):", nomePadrao);
-            if (!nomeSalvar) nomeSalvar = nomePadrao;
+            const nomePadrao = `media_${file1.name}_e_${file2.name}`.replace(/\.s[12]p$/i,'');
+            const nomeSalvar = prompt("Digite o nome do arquivo (sem extensão):", nomePadrao);
+            
+            // Se o usuário clicar em Cancelar ou deixar vazio → interrompe
+            if (!nomeSalvar) {
+                alert("Download cancelado.");
+                return;
+            }
 
             let content = "!File created by S-Parameter Plotter\n# Hz S RI R 50\n";
             for (let i = 0; i < f1.length; i++) {
@@ -406,7 +429,6 @@
             alert("Arquivo de média gerado e baixado!");
         }
 
-        // Modal de ajuda
         function showHelp() {
             document.getElementById('helpModal').style.display = 'block';
         }
